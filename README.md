@@ -15,4 +15,5 @@ The script is built from a client side and a server side.
 The client should support several configurations such as protocol, timeout, packet-
 size and etc.
 
-mission credit: Roee Kashi
+# mission credit
+Roee Kashi
