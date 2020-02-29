@@ -10,7 +10,7 @@ class PingPort:
 
         self._timeout = self.__set_attribute("timeout", 20)# TODO implement timeout
         self._message = self.__set_attribute("message", 'bling ping')
-        self._sleep_between_pings = self.__set_attribute("sleep_between_pings", 1)
+        self._sleep_between_pings = self.__set_attribute("sleep_between_pings", 3)
         self._choose_protocol()
         # TODO handle failed pings (try-except)
         # TODO add statistics on success/total attempts
@@ -27,7 +27,7 @@ class PingPort:
         while True:
             self._protocol.send_on_socket(message=self._message)
             received = self._protocol.receive_on_socket()
-            logging.info("pinging:{}".format(received[1]))
+            logging.info("ping:{}".format(received))
             time.sleep(self._sleep_between_pings)
 
     def __set_attribute(self, key, default):

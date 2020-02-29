@@ -8,5 +8,5 @@ if __name__ == '__main__':
     ping = pingport.PingPort(host="localhost",
                              port=65432,
                              protocol="udp",
-                            timeout=18)
+                             timeout=18)
     ping.start()
