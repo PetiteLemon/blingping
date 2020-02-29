@@ -1,10 +1,11 @@
+import logging
 import socket
 from client import protocolclient
 
 
 class UdpClient(protocolclient.ProtocolClient):
-    def __init__(self, host, port, packet_size):
-        super().__init__(host, port, packet_size)
+    def __init__(self, host, port, packet_size, timeout):
+        super().__init__(host, port, packet_size, timeout)
 
     def _create_socket(self):
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -14,4 +15,8 @@ class UdpClient(protocolclient.ProtocolClient):
         self.socket.send(message.encode())
 
     def receive_on_socket(self):
-        return self.socket.recvfrom(self._packet_size)
+        try:
+            return self.socket.recvfrom(self._packet_size)
+        except Exception as e:
+            logging.debug("failed to rec from socket: {}".format(e))
+            return

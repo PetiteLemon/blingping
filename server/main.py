@@ -1,84 +1,107 @@
 import logging, select, socket
 from common import config
-from server import udpserver, tcpserver
 
 
 def looper():
-    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    udp_socket.bind(('0.0.0.0', 65432))
+    udps = create_udp_sockets()
+    tcps = create_tcp_sockets()
+    tcp_connections = {}
 
-    udp_inputs = [udp_socket]
-    udp_outputs = []
-    udp_messages = {}
-    while udp_inputs:
-        readable, writable, exceptional = select.select(udp_inputs, udp_outputs, udp_inputs)
-        for s in readable:
-            logging.info("in readable")
+    while True:
+        keys = [*udps] + [*tcps] + [*tcp_connections]
+        readable, writable, exceptional = select.select(keys, keys, keys)
+
+        handle_udps(udps, readable, writable, exceptional)
+        handle_tcps(tcps, tcp_connections, readable, writable, exceptional)
+        handle_tcp_connections(tcp_connections, readable, writable, exceptional)
+
+
+def create_udp_sockets():
+    udps = {}
+    for port in range(65400, 65500):
+        udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        udp_socket.bind(('0.0.0.0', port))
+        udps[udp_socket] = None
+    return udps
+
+
+def create_tcp_sockets():
+    tcps = {}
+    for port in range(65400, 65500):
+        tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        tcp_socket.setblocking(False)
+        tcp_socket.bind(('0.0.0.0', port))
+        tcp_socket.listen()
+        tcps[tcp_socket] = None
+    return tcps
+
+
+def handle_udps(udps, readable, writable, exceptional):
+    keys_to_remove = []
+    for s in udps:
+        if s in readable:
             data, peer = s.recvfrom(1024)
-            if data:
-                udp_outputs.append(s)
-                udp_messages.update({s: (data, peer)})
-        for s in writable:
-            if s in udp_outputs:
-                message = udp_messages[s]
-                logging.info("in writable:{}".format(message))
-                s.sendto(message[0], message[1])
-                udp_outputs.remove(s)
-        for s in exceptional:
-            logging.info("exception on: {}".format(s))
-            udp_inputs.remove(s)
-            if s in udp_outputs:
-                udp_outputs.remove(s)
-                del udp_messages[s]
+            logging.info("reading udp:{}".format(data, peer))
+            udps[s] = {"data": data, "peer": peer}
+        if s in writable and udps[s]:
+            message = udps[s]
+            s.sendto(message["data"], message["peer"])
+            udps[s] = None
+        if s in exceptional:
+            logging.exception("exception on udp: {}".format(s))
+            keys_to_remove.append(s)
+            s.close()  # TODO do we want to close the udp socket ?
+
+    for k in keys_to_remove:
+        del udps[k]
+
+
+def handle_tcps(tcps, tcp_connections, readable, writable, exceptional):
+    keys_to_remove = []
+    for s in tcps:
+        if s in readable:
+            connection, client_address = s.accept()
+            connection.setblocking(False)
+            tcp_connections[connection] = None
+            logging.info("tcp accepting client:{}".format(client_address))
+        if s in writable:
+            pass
+        if s in exceptional:
+            logging.exception("exception on tcp: {}".format(s))
+            keys_to_remove.append(s)
             s.close()
 
+    for k in keys_to_remove:
+        del tcp_connections[k]
 
-# the only propose of select is to tell me if my next action (read, write) will block.
-# so, Im only going into the "s in readable" if there is ALREADY a letter, so I know I wont be blocking.
 
-# we assume that s is always writable, so imissidtly after getting a message in readable, it will pop out in writable
-# on the sam iteration
-
-'''
-    for s in readable:
-        if s is server:
-            connection, client_address = s.accept()
-            connection.setblocking(0)
-            inputs.append(connection)
-            message_queues[connection] = Queue.Queue()
-        else:
+def handle_tcp_connections(tcp_connections, readable, writable, exceptional):
+    keys_to_remove = []
+    for s in tcp_connections:
+        if s in readable:
             data = s.recv(1024)
             if data:
-                message_queues[s].put(data)
-                if s not in outputs:
-                    outputs.append(s)
+                tcp_connections[s] = data
             else:
-                if s in outputs:
-                    outputs.remove(s)
-                inputs.remove(s)
+                logging.info("removing tcp_connections: {}".format(s))
+                tcp_connections[s] = None
+                keys_to_remove.append(s)
                 s.close()
-                del message_queues[s]
 
-    for s in writable:
-        try:
-            next_msg = message_queues[s].get_nowait()
-        except Queue.Empty:
-            outputs.remove(s)
-        else:
-            s.send(next_msg)
+        if s in writable and tcp_connections.get(s):
+            logging.info("writing to tcp_connections:{}".format(tcp_connections[s]))
+            s.send(tcp_connections[s])
+            tcp_connections[s] = None
+        if s in exceptional:
+            logging.info("exception on tcp_connections: {}".format(s))
+            keys_to_remove.append(s)
+            s.close()
 
-    for s in exceptional:
-        inputs.remove(s)
-        if s in outputs:
-            outputs.remove(s)
-        s.close()
-        del message_queues[s]
-'''
+    for k in keys_to_remove:
+        del tcp_connections[k]
+
 
 if __name__ == '__main__':
     logging.basicConfig(format=config.FORMAT_LOG, level=config.LEVEL_LOG)
     logging.info("hi im server")
     looper()
-    # udpserver.UdpServer('0.0.0.0', port=65432)
-    # tcpserver.TcpServer('0.0.0.0', port=65432)
-

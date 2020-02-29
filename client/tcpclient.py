@@ -3,8 +3,9 @@ from client import protocolclient
 
 
 class TcpClient(protocolclient.ProtocolClient):
-    def __init__(self, host, port, packet_size):
-        super().__init__(host, port, packet_size)
+    def __init__(self, host, port, packet_size, timeout):
+        super().__init__(host, port, packet_size, timeout)
+        # TODO handle failed pings (try-except)
 
     def _create_socket(self):
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
