@@ -13,8 +13,9 @@ The client should support several configurations such as protocol, timeout, pack
 
 # assumptions
 1. socket is write-ready always, as we have ethernet connection in mide, as opposed to modems.
-  this effects the design in server handleing of messages, when reciveing a new message we ovveride the last one.
+  this effects the design in server handling of messages, when receiving a new message we override the last one.
 
 # credits
 Originator: Roee Kashi
+
 Code and design review: Yoav Marom
